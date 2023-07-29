@@ -1,11 +1,21 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { JwtService } from '@nestjs/jwt';
 import { AuthDto } from './dto';
 import * as argon from 'argon2';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable({})
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwt: JwtService,
+    private config: ConfigService,
+  ) {}
 
   async register(dto: AuthDto) {
     try {
@@ -18,9 +28,7 @@ export class AuthService {
         },
       });
 
-      delete user.password;
-
-      return user;
+      return this.createToken(user.id, user.email);
     } catch (error) {
       throw new ForbiddenException('Email already taken');
     }
@@ -34,17 +42,35 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new ForbiddenException('Username or password was wrong');
+      throw new UnauthorizedException();
     }
 
     const comparePassword = await argon.verify(user.password, dto.password);
 
     if (!comparePassword) {
-      throw new ForbiddenException('Username or password was wrong');
+      throw new UnauthorizedException();
     }
 
-    delete user.password;
+    return this.createToken(user.id, user.email);
+  }
 
-    return user;
+  async createToken(
+    userId: number,
+    email: string,
+  ): Promise<{ access_token: string }> {
+    const data = {
+      sub: userId,
+      email,
+    };
+
+    const secret = this.config.get('JWT_SECRET');
+    const token = await this.jwt.signAsync(data, {
+      expiresIn: '15m',
+      secret,
+    });
+
+    return {
+      access_token: token,
+    };
   }
 }
