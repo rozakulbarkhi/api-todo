@@ -18,12 +18,12 @@ model User {
   lastName String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  todos Todo[]
+  habits Habit[]
 
   @@map("users")
 }
 
-model Todo {
+model Habit {
   id Int @id @default(autoincrement())
   title String
   desc String?
@@ -32,5 +32,5 @@ model Todo {
   userId Int
   user User @relation(fields: [userId], references: [id])
 
-  @@map("todos")
+  @@map("habits")
 }
